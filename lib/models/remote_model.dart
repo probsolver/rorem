@@ -10,7 +10,7 @@ class ControlModel extends ChangeNotifier {
     FlutterCompass.events.listen((compassHeading) {
       final h = compassHeading.toInt();
       if (h != heading) {
-        heading = h;
+        setHeading = h;
       }
     });
   }

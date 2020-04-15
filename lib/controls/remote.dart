@@ -1,10 +1,45 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'bt.dart';
 import '../models/remote_model.dart';
 
-class SpeedIndicatorText extends StatelessWidget {
-  const SpeedIndicatorText({
+class ControlPage extends StatelessWidget {
+  ControlPage({Key key, this.title}) : super(key: key);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title),
+        actions: <Widget>[
+          BTStatusButton(
+            onPressed: () => Navigator.pushNamed(context, '/bt'),
+          ),
+        ],
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            HeadingIndicator(),
+            SpeedIndicator(),
+          ],
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.fromLTRB(0, 0, 30, 60),
+        child: FloatingSpeedControls(),
+      ),
+    );
+  }
+}
+
+class SpeedIndicator extends StatelessWidget {
+  const SpeedIndicator({
     Key key,
   }) : super(key: key);
 
@@ -19,7 +54,11 @@ class SpeedIndicatorText extends StatelessWidget {
   }
 }
 
-class HeadingIndicatorText extends StatelessWidget {
+class HeadingIndicator extends StatelessWidget {
+  const HeadingIndicator({
+    Key key,
+  }) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return Consumer<ControlModel>(
@@ -32,10 +71,6 @@ class HeadingIndicatorText extends StatelessWidget {
 }
 
 class FloatingSpeedControls extends StatelessWidget {
-  const FloatingSpeedControls({
-    Key key,
-  }) : super(key: key);
-
   @override
   Widget build(BuildContext context) {
     return Consumer<ControlModel>(
@@ -56,7 +91,7 @@ class FloatingSpeedControls extends StatelessWidget {
           ),
           FloatingActionButton(
             onPressed: cModel.isMinSpeed() ? null : cModel.decelerate,
-            tooltip: 'stop',
+            tooltip: 'deccelerate',
             child: Icon(Icons.arrow_downward),
             heroTag: null,
           ),

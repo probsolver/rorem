@@ -24,9 +24,9 @@ dependencies:
   flutter:
     sdk: flutter
 
-  provider: ^4.0.0
+  provider: ^5.0.0
 
-  flutter_compass: ^0.4.0
+  flutter_compass: ^0.6.0
 
   flutter_bluetooth_serial: ^0.2.2
 

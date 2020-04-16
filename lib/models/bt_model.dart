@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +6,9 @@ import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 import 'package:rorem/models/data_handler.dart';
 
 const SDP_SERIAL_UUID = '00001101-0000-1000-8000-00805f9b34fb';
+
+const ValueKeySpeed = 1;
+const ValueKeyHeading = 2;
 
 class BTDevice {
   final BluetoothDevice device;
@@ -19,82 +21,6 @@ class BTDevice {
   const BTDevice(this.device);
 }
 
-class BTDisco {
-  StreamSubscription<BluetoothDiscoveryResult> _discoStream;
-  List<BluetoothDevice> _deviceList = [];
-  List<BluetoothDevice> get deviceList => _deviceList;
-  final Function onDiscovered;
-
-  bool _done = false;
-  bool get done => _done;
-
-  bool _running = false;
-  bool get isRunning => _running;
-
-  BTDisco({this.onDiscovered});
-
-  void dispose() {
-    this._stop();
-  }
-
-  start() {
-    if (_running) {
-      return;
-    }
-    _run();
-  }
-
-  void stop() {
-    if (!_running) {
-      return;
-    }
-    _stop();
-  }
-
-  void _stop() {
-    _deviceList.clear();
-    if (_running) {
-      _running = false;
-      _discoStream?.cancel();
-    }
-    _done = false;
-  }
-
-  void _run() {
-    _done = false;
-    _running = true;
-    _discoStream = FlutterBluetoothSerial.instance
-        .startDiscovery()
-        .listen((BluetoothDiscoveryResult de) {
-      if (de.device.isConnected || _isAlreadyKnown(de.device)) {
-        return;
-      }
-      _deviceList.add(de.device);
-      if (onDiscovered != null) {
-        onDiscovered(_deviceList);
-      }
-    });
-    _discoStream.onDone(() {
-      _running = false;
-      _done = true;
-      if (onDiscovered != null) {
-        onDiscovered(_deviceList);
-      }
-    });
-    _discoStream.onError(() {
-      _stop();
-      // device list will be empty
-      if (onDiscovered != null) {
-        onDiscovered(_deviceList);
-      }
-    });
-  }
-
-  bool _isAlreadyKnown(BluetoothDevice dev) {
-    return _deviceList.any((knownDev) => knownDev.address == dev.address);
-  }
-}
-
 enum BTState {
   DISCONNECTED,
   CONNECTING,
@@ -102,13 +28,15 @@ enum BTState {
   ERROR,
 }
 
-class BTModel extends ChangeNotifier {
+class BTModel with ChangeNotifier {
   bool _available = false;
 
   List<BluetoothDevice> _paired = [];
   List<BTDevice> get paired => _paired.map((d) => BTDevice(d)).toList();
 
-  List<BTDevice> get connected => paired.where((d) => d.connected).toList();
+  List<BTDevice> get connected => state == BTState.CONNECTED
+      ? paired.where((d) => d.connected).toList()
+      : [];
 
   List<BluetoothDevice> _discovered = [];
   List<BTDevice> get discovered => _discovered.map((d) => BTDevice(d)).toList();
@@ -121,10 +49,14 @@ class BTModel extends ChangeNotifier {
   String _name;
   String get name => _name ?? '-';
 
-  BTDisco _disco;
-
-  DataHandler _dataHandler;
+  DataHandler _dataHandler = DataHandler();
   DataHandler get dataHandler => _dataHandler;
+
+  int get speed => value(ValueKeySpeed);
+  set speed(int value) => enqueue(ValueKeySpeed, value);
+
+  int get heading => value(ValueKeyHeading);
+  set heading(int value) => enqueue(ValueKeyHeading, value);
 
   BluetoothState _state = BluetoothState.UNKNOWN;
 
@@ -159,7 +91,9 @@ class BTModel extends ChangeNotifier {
   }
 
   BTModel() {
-    //_dataHandler = DataHandler();
+    _dataHandler = DataHandler();
+    _dataHandler.register(ValueKeySpeed);
+    _dataHandler.register(ValueKeyHeading);
 
     FlutterBluetoothSerial.instance.isAvailable.then((value) {
       _available = value;
@@ -174,7 +108,6 @@ class BTModel extends ChangeNotifier {
           btState == BluetoothState.STATE_TURNING_OFF ||
           btState == BluetoothState.STATE_OFF ||
           btState == BluetoothState.UNKNOWN) {
-        _disco?.stop();
         _connection?.close();
         _connection = null;
       }
@@ -183,32 +116,14 @@ class BTModel extends ChangeNotifier {
         notifyListeners();
       }
     });
-    _disco = BTDisco(onDiscovered: (List<BluetoothDevice> devs) {
-      for (var d in devs) {
-        if (_paired.firstWhere((p) => p.address == d.address,
-                orElse: () => null) ??
-            false) {
-          updatePairedDevices();
-        }
-      }
-    });
   }
 
   @override
   void dispose() {
-    _disco?.stop();
     FlutterBluetoothSerial.instance.setPairingRequestHandler(null);
-    _disco?.dispose();
-    _disco = null;
     _connection.dispose();
+    _connection = null;
     super.dispose();
-  }
-
-  void discover() {
-    if (_disco.isRunning) {
-      return;
-    }
-    _disco.start();
   }
 
   void connect(String address) {
@@ -218,11 +133,9 @@ class BTModel extends ChangeNotifier {
     _connect(address);
   }
 
-  void disconnect(address) {
+  void disconnect() {
     if (_connection?.isConnected ?? false) {
-      if (_paired.any((dev) => dev.address == address)) {
-        _disconnect();
-      }
+      _disconnect();
     }
     return;
   }
@@ -232,34 +145,50 @@ class BTModel extends ChangeNotifier {
     var device =
         devs.firstWhere((dev) => dev.address == address, orElse: () => null);
 
-    if (!(device?.isConnected ?? false)) {
-      BluetoothConnection.toAddress(address).then((btConn) {
-        _connection = btConn;
-        print('BT connected');
-        _connection.output.add(ascii.encode('hi there'));
+    BluetoothConnection.toAddress(address)
+        .then((btConn) {
+          _connection = btConn;
+          print('BT connected');
 
-        _dataHandler.register(1);
-        _dataHandler.register(2);
+          // _connection.output
+          //   .add(ascii.encode('hello there!!!!')); // multiple of 5
 
-        _connection.output.add(ascii.encode('hi again!!!'));
-
-        _connection.input.listen((event) {
-          // FIXME: implement
-          print('BT data received ${event.length}');
-          print('BT data: $event');
+          _connection.input.listen((event) {
+            print('BT data received: $event');
+            var changed = _dataHandler.update(event);
+            print('values updated: $changed');
+            if (changed) {
+              notifyListeners();
+            }
+          }, onDone: () {
+            print('BT connection closed');
+            disconnect();
+            _state = BluetoothState.STATE_TURNING_OFF;
+            notifyListeners();
+          }, onError: (error) {
+            print('BT connection recv error: $error');
+            _state = BluetoothState.ERROR;
+            notifyListeners();
+          });
+          notifyListeners();
+        })
+        .then((_) => FlutterBluetoothSerial.instance.state)
+        .then((state) {
+          _state = state;
+          updatePairedDevices();
+        })
+        .catchError((e) {
+          _state = BluetoothState.ERROR;
+          notifyListeners();
         });
-        notifyListeners();
-      }).then((_) {
-        updatePairedDevices();
-      }).catchError((e) {
-        _state = BluetoothState.ERROR;
-        notifyListeners();
-      });
-    }
   }
 
   void _disconnect() {
-    _connection?.close()?.then((_) => updatePairedDevices());
+    _connection
+        ?.close()
+        ?.then((_) => updatePairedDevices())
+        ?.then((_) => FlutterBluetoothSerial.instance.state)
+        ?.then((value) => _state = value);
   }
 
   BluetoothConnection get connection {
@@ -314,5 +243,24 @@ class BTModel extends ChangeNotifier {
       _state = BluetoothState.ERROR;
     }
     notifyListeners();
+  }
+
+  int value(int key) {
+    return _dataHandler.value(key);
+  }
+
+  void enqueue(int key, int value) {
+    if (_dataHandler.enqueue(key, value)) {
+      if (_dataHandler.enqueued && _connection != null) {
+        try {
+          _connection.output.add(_dataHandler.encodeNew());
+        } catch (e) {
+          print('BT connection send error: $e');
+          disconnect();
+          _state = BluetoothState.ERROR;
+          notifyListeners();
+        }
+      }
+    }
   }
 }

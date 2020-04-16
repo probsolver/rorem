@@ -3,12 +3,12 @@ import 'package:flutter/foundation.dart';
 
 import 'package:flutter_compass/flutter_compass.dart';
 
-class ControlModel extends ChangeNotifier {
+class ControlModel with ChangeNotifier {
   final String endpoint;
 
   ControlModel(this.endpoint) {
     FlutterCompass.events.listen((compassHeading) {
-      final h = compassHeading.toInt();
+      final h = compassHeading.heading.toInt();
       if (h != heading) {
         setHeading = h;
       }

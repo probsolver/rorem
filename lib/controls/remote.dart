@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:rorem/models/bt_model.dart';
 
 import 'bt.dart';
 import '../models/remote_model.dart';
@@ -45,11 +46,14 @@ class SpeedIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ControlModel>(
-      builder: (context, cModel, _) => Text(
-        '${cModel.setSpeed} (${cModel.speed})',
-        style: Theme.of(context).textTheme.headline5,
-      ),
+    return Consumer2<ControlModel, BTModel>(
+      builder: (context, cModel, btModel, _) {
+        btModel.speed = cModel.setSpeed;
+        return Text(
+          '${cModel.setSpeed} (${btModel.speed})',
+          style: Theme.of(context).textTheme.headline5,
+        );
+      },
     );
   }
 }
@@ -61,11 +65,14 @@ class HeadingIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ControlModel>(
-      builder: (context, cModel, _) => Text(
-        '${cModel.setHeading} (${cModel.heading})',
-        style: Theme.of(context).textTheme.headline5,
-      ),
+    return Consumer2<ControlModel, BTModel>(
+      builder: (context, cModel, btModel, _) {
+        btModel.heading = cModel.setHeading;
+        return Text(
+          '${cModel.setHeading} (${btModel.heading})',
+          style: Theme.of(context).textTheme.headline5,
+        );
+      },
     );
   }
 }
@@ -78,19 +85,37 @@ class FloatingSpeedControls extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.end,
         children: <Widget>[
           FloatingActionButton(
-            onPressed: cModel.isMaxSpeed() ? null : cModel.accelerate,
+            onPressed: () {
+              if (!cModel.isMaxSpeed()) {
+                cModel.accelerate();
+                Provider.of<BTModel>(context, listen: false).speed =
+                    cModel.setSpeed;
+              }
+            },
             tooltip: 'accelerate',
             child: Icon(Icons.arrow_upward),
             heroTag: null,
           ),
           FloatingActionButton(
-            onPressed: cModel.isStopped() ? null : cModel.stop,
+            onPressed: () {
+              if (!cModel.isStopped()) {
+                cModel.stop();
+                Provider.of<BTModel>(context, listen: false).speed =
+                    cModel.setSpeed;
+              }
+            },
             tooltip: 'stop',
             child: Icon(Icons.stop_circle_outlined),
             heroTag: null,
           ),
           FloatingActionButton(
-            onPressed: cModel.isMinSpeed() ? null : cModel.decelerate,
+            onPressed: () {
+              if (!cModel.isMinSpeed()) {
+                cModel.decelerate();
+                Provider.of<BTModel>(context, listen: false).speed =
+                    cModel.setSpeed;
+              }
+            },
             tooltip: 'deccelerate',
             child: Icon(Icons.arrow_downward),
             heroTag: null,

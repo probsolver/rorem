@@ -24,7 +24,7 @@ class RoRemApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<ControlModel>(
           create: (context) => ControlModel(''),
-        )
+        ),
       ],
       child: MaterialApp(
         onGenerateRoute: (settings) {

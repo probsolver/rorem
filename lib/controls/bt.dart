@@ -47,7 +47,7 @@ class BTPage extends StatelessWidget {
                   flex: 3,
                   child: BTDeviceList(
                     devices: btModel.connected,
-                    onDeviceSelected: (dev) => btModel.disconnect(dev.address),
+                    onDeviceSelected: (dev) => btModel.disconnect(),
                     decoration:
                         BoxDecoration(color: Theme.of(context).backgroundColor),
                   ),

@@ -5,6 +5,7 @@ from .exceptions import (
     ListenError, Timeout, ConnectionError,
     AcceptError, ClosedError, SendError,
     RecvError, SendTimeout, ReceiveTimeout,
+    DataError,
 )
 
 __title__ = 'btserial'
